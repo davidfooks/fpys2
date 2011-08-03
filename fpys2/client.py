@@ -42,7 +42,7 @@ class FPSResponse(object):
         self.element = element
 
         for child in element.getchildren():
-            if len(child.getchildren()) ==0:
+            if len(child.getchildren()) == 0:
                 value = child.text
                 if child.tag.find("Date") >= 0:
                     # TODO this is a little less than ideal
@@ -77,9 +77,20 @@ class FPSResponse(object):
             raise AmazonError(self)
 
 class FlexiblePaymentClient(object):
+    
     def __init__(self, aws_access_key_id, aws_secret_access_key, 
                  fps_url="https://fps.sandbox.amazonaws.com",
-                 pipeline_url="https://authorize.payments-sandbox.amazon.com/cobranded-ui/actions/start"):
+                 pipeline_url="https://authorize.payments-sandbox.amazon.com/cobranded-ui/actions/start",
+                 version='2008-09-17'):
+        """
+        Initializes a FlexiblePaymentClient which can be used to make calls
+        to Amazon FPS REST methods. The default values of fps_url and pipeline_url initialize
+        a client which makes calls to the Amazon testing sandbox. In order to make calls to the
+        to actual Amazon FPS site use the following values:
+        
+        fps_url="https://fps.sandbox.amazonaws.com"
+        pipeline_url="https://authorize.payments-sandbox.amazon.com/cobranded-ui/actions/start"
+        """
         self.access_key_id = aws_access_key_id
         self.aws_secret_access_key = aws_secret_access_key
         self.fps_url = fps_url
@@ -87,6 +98,7 @@ class FlexiblePaymentClient(object):
         self.pipeline_url = pipeline_url
         self.pipeline_path = pipeline_url.split("amazon.com")[1]
         self.pipeline_host = pipeline_url.split("://")[1].split("/")[0]
+        self.VERSION = version
 
     def sign_string(self, string, hashfunc):
         """
@@ -105,11 +117,9 @@ class FlexiblePaymentClient(object):
 
     def get_signature(self, parameters, path=None, http_verb='GET', http_host=None, hashfunc=hashlib.sha256):
         """
-        Returns the signature for the Amazon FPS Pipeline request that will be
-        made with the given parameters.  Pipeline signatures are calculated with
-        a different algorithm from the REST interface.  Names and values are
-        url encoded and separated with an equal sign, unlike the REST 
-        signature calculation.
+        Returns the signature for the Amazon FPS request that will be
+        made with the given parameters. Names and values are
+        url encoded and separated with an equal sign.
         """
         if path is None:
             path = self.pipeline_path
@@ -132,10 +142,10 @@ class FlexiblePaymentClient(object):
         """
 
         # Throw out parameters that == None
-        parameters = dict([(k,v) for k,v in parameters.items() if v != None])
+        parameters = dict((k,v) for k,v in parameters.items() if v != None)
 
         parameters['Timestamp'] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        parameters['Version'] = '2008-09-17'
+        parameters['Version'] = self.VERSION
 
         if sign:
             parameters['AWSAccessKeyId'] = self.access_key_id
@@ -181,11 +191,15 @@ class FlexiblePaymentClient(object):
     
     def get_pipeline_url(self, 
                        caller_reference, 
-                       payment_reason, 
-                       transaction_amount, 
+                       payment_reason,
+                       global_amount_limit,
                        return_url, 
                        pipeline_name="SingleUse", 
-                       recurring_period=None
+                       recurring_period=None,
+                       amount_type=None,
+                       validity_start=None,
+                       validity_expiry=None,
+                       transaction_amount=None,
                        ):
         """Gets the URL for making a co-branded service request, like in this Java
         code:
@@ -193,16 +207,29 @@ class FlexiblePaymentClient(object):
         """
         parameters = {'callerReference': caller_reference,
                       'paymentReason': payment_reason,
-                      'transactionAmount': transaction_amount,
                       'callerKey': self.access_key_id,
                       'pipelineName': pipeline_name,
                       'returnURL': return_url,
                       'signatureVersion': 2,
-                      'signatureMethod': 'HmacSHA256'
-                      }
-
+                      'signatureMethod': 'HmacSHA256',
+                      'globalAmountLimit' : global_amount_limit
+        }
+        
+        if transaction_amount:
+            parameters['transactionAmount'] = transaction_amount
+            
+        if amount_type:
+            parameters['amountType'] = amount_type
+        
+        if validity_start:
+            parameters['validityStart'] = validity_start
+        
+        if validity_expiry:
+            parameters['validityExpiry'] = validity_expiry
+        
         if recurring_period is not None:
             parameters['recurringPeriod'] = recurring_period
+        
         parameters['signature'] = self.get_signature(parameters)
         query_string = urllib.urlencode(parameters)
         url = "%s?%s" % (self.pipeline_url, query_string)
@@ -213,15 +240,13 @@ class FlexiblePaymentClient(object):
         params = {'Action': 'GetTokenByCaller',
                   'CallerReference': caller_reference,
                   'TokenId': token_id}
+
         return self.execute(params)
 
-    def pay(self,
-            sender_token,
-            amount,
-            caller_reference,
-            recipient_token=None,
-            caller_description = None,
-            charge_fee_to='Recipient'):
+    def pay(self, sender_token, amount,
+            caller_reference, recipient_token=None,
+            caller_description = None, charge_fee_to='Recipient'):
+        
         params = {'Action': 'Pay',
                   'SenderTokenId': sender_token,
                   'RecipientTokenId': recipient_token,
@@ -229,9 +254,8 @@ class FlexiblePaymentClient(object):
                   'TransactionAmount.CurrencyCode': 'USD',
                   'CallerReference': caller_reference,
                   'CallerDescription': caller_description,
-                  'ChargeFeeTo': charge_fee_to,
-            }
-
+                  'ChargeFeeTo': charge_fee_to}
+        
         return self.execute(params)
 
     def refund(self,
