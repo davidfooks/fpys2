@@ -3,11 +3,11 @@ use_setuptools()
 from setuptools import setup, find_packages
 
 setup(name = "FPyS2",
-      version = "0.5",
+      version = "0.6",
       description = "Amazon FPS Library (version 2008-09-17)",
-      author = "Wade Simmons",
-      author_email = "wade@wades.im",
-      url = "http://github.com/wadey/fpys2",
+      author = "Travis Fischer",
+      author_email = "trav.fischer@gmail.com",
+      url = "http://github.com/travisfischer/fpys2",
       packages = ["fpys2"],
       test_suite = "fpys2.tests",
       install_requires = ["wsgi_intercept",
