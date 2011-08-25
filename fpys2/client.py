@@ -140,7 +140,6 @@ class FlexiblePaymentClient(object):
         is sorted, signed, and turned into a valid FPS REST call.  
         The response is read via urllib2 and parsed into an FPSResponse object
         """
-
         # Throw out parameters that == None
         parameters = dict((k,v) for k,v in parameters.items() if v != None)
 
@@ -160,9 +159,11 @@ class FlexiblePaymentClient(object):
         try:
             response = urllib2.urlopen("%s/?%s" % (self.fps_url, query_str))
             data = response.read()
+            _log.debug("data == %s" % data)
             response.close()
         except urllib2.HTTPError, httperror:
             data = httperror.read()
+            _log.error("data == %s: %s" % (httperror.code, data))
             httperror.close()
 
         return FPSResponse(ET.fromstring(data))
