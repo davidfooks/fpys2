@@ -26,7 +26,7 @@ class Error(Exception):
 
 class AmazonError(Error):
     """Error returned by amazon"""
-    
+
     def __init__(self, response):
         if isinstance(response.errors, list):
             Error.__init__(self, "%s: %s" % (response.errors[0].errorCode, response.errors[0].reasonText))
@@ -72,13 +72,13 @@ class FPSResponse(object):
         if hasattr(self, "transactionResponse"):
             setattr(self, "transaction", self.transactionResponse)
             delattr(self, "transactionResponse")
-        
+
         if hasattr(self, "errors"):
             raise AmazonError(self)
 
 class FlexiblePaymentClient(object):
-    
-    def __init__(self, aws_access_key_id, aws_secret_access_key, 
+
+    def __init__(self, aws_access_key_id, aws_secret_access_key,
                  fps_url="https://fps.sandbox.amazonaws.com",
                  pipeline_url="https://authorize.payments-sandbox.amazon.com/cobranded-ui/actions/start",
                  version='2008-09-17'):
@@ -87,7 +87,7 @@ class FlexiblePaymentClient(object):
         to Amazon FPS REST methods. The default values of fps_url and pipeline_url initialize
         a client which makes calls to the Amazon testing sandbox. In order to make calls to the
         to actual Amazon FPS site use the following values:
-        
+
         fps_url="https://fps.sandbox.amazonaws.com"
         pipeline_url="https://authorize.payments-sandbox.amazon.com/cobranded-ui/actions/start"
         """
@@ -109,8 +109,8 @@ class FlexiblePaymentClient(object):
         Base64 encode the result and strip whitespace.
         """
         _log.debug("to sign: %s" % string)
-        sig = base64.encodestring(hmac.new(self.aws_secret_access_key, 
-                                           string, 
+        sig = base64.encodestring(hmac.new(self.aws_secret_access_key,
+                                           string,
                                            hashfunc).digest()).strip()
         _log.debug(sig)
         return(sig)
@@ -137,7 +137,7 @@ class FlexiblePaymentClient(object):
     def execute(self, parameters, sign=True):
         """
         A generic call to the FPS service.  The parameters dictionary
-        is sorted, signed, and turned into a valid FPS REST call.  
+        is sorted, signed, and turned into a valid FPS REST call.
         The response is read via urllib2 and parsed into an FPSResponse object
         """
         # Throw out parameters that == None
@@ -151,7 +151,7 @@ class FlexiblePaymentClient(object):
             parameters['SignatureVersion'] = 2
             parameters['SignatureMethod'] = 'HmacSHA256'
             parameters['Signature'] = self.get_signature(parameters, path='/', http_host=self.fps_host)
-        
+
         query_str = urllib.urlencode(parameters)
         _log.debug("request_url == %s/?%s" % (self.fps_url, query_str))
 
@@ -167,41 +167,39 @@ class FlexiblePaymentClient(object):
             httperror.close()
 
         return FPSResponse(ET.fromstring(data))
-    
+
     def cancel(self, transaction_id, description=None):
         params = {'Action': 'Cancel',
                   'TransactionId': transaction_id,
                   'Description': description}
         return self.execute(params)
-    
+
     def cancel_token(self, token_id, reason=None):
         params = {'Action': 'CancelToken',
                   'TokenId': token_id,
                   'ReasonText': reason}
         return self.execute(params)
-    
+
     def get_receipient_verification_status(self, token_id):
         params = {'Action': 'GetReceipientVerificationStatus',
                   'RecipientTokenID': token_id}
         return self.execute(params)
-    
+
     def get_transaction_status(self, transaction_id):
         params = {'Action': 'GetTransactionStatus',
                   'TransactionId': transaction_id}
         return self.execute(params)
-    
-    def get_pipeline_url(self, 
-                       caller_reference, 
+
+    def get_pipeline_url(self,
+                       caller_reference,
                        payment_reason,
-                       global_amount_limit,
-                       return_url, 
-                       pipeline_name="SingleUse", 
+                       return_url,
+                       pipeline_name="SingleUse",
                        recurring_period=None,
                        amount_type=None,
                        validity_start=None,
                        validity_expiry=None,
-                       transaction_amount=None,
-                       ):
+                       transaction_amount=None):
         """Gets the URL for making a co-branded service request, like in this Java
         code:
         http://docs.amazonwebservices.com/AmazonFPS/latest/FPSGettingStartedGuide/index.html?gsMakingCoBrandedUIRequests.html#d0e1242
@@ -212,25 +210,24 @@ class FlexiblePaymentClient(object):
                       'pipelineName': pipeline_name,
                       'returnURL': return_url,
                       'signatureVersion': 2,
-                      'signatureMethod': 'HmacSHA256',
-                      'globalAmountLimit' : global_amount_limit
+                      'signatureMethod': 'HmacSHA256'
         }
-        
+
         if transaction_amount:
             parameters['transactionAmount'] = transaction_amount
-            
+
         if amount_type:
             parameters['amountType'] = amount_type
-        
+
         if validity_start:
             parameters['validityStart'] = validity_start
-        
+
         if validity_expiry:
             parameters['validityExpiry'] = validity_expiry
-        
+
         if recurring_period is not None:
             parameters['recurringPeriod'] = recurring_period
-        
+
         parameters['signature'] = self.get_signature(parameters)
         query_string = urllib.urlencode(parameters)
         url = "%s?%s" % (self.pipeline_url, query_string)
@@ -247,7 +244,7 @@ class FlexiblePaymentClient(object):
     def pay(self, sender_token, amount,
             caller_reference, recipient_token=None,
             caller_description = None, charge_fee_to='Recipient'):
-        
+
         params = {'Action': 'Pay',
                   'SenderTokenId': sender_token,
                   'RecipientTokenId': recipient_token,
@@ -256,7 +253,7 @@ class FlexiblePaymentClient(object):
                   'CallerReference': caller_reference,
                   'CallerDescription': caller_description,
                   'ChargeFeeTo': charge_fee_to}
-        
+
         return self.execute(params)
 
     def refund(self,
@@ -297,11 +294,28 @@ class FlexiblePaymentClient(object):
                   'TransactionAmount.CurrencyCode': (amount and 'USD')}
 
         return self.execute(params)
-    
+
     def verify_signature(self,
                         url_endpoint,
                         http_parameters):
-        params = {'Action': 'VerifySignature',
-                  'UrlEndPoint': url_endpoint,
-                  'HttpParameters': http_parameters}
-        return self.execute(params, sign=False)
+
+        query_str = 'Action=VerifySignature'
+        query_str += '&UrlEndPoint=' + urllib.quote(url_endpoint)
+        query_str += '&HttpParameters=' + urllib.quote(urllib.urlencode(http_parameters))
+        query_str += '&Version=' + self.VERSION
+
+        _log.debug("request_url == %s/?%s" % (self.fps_url, query_str))
+
+        data = None
+        try:
+            response = urllib2.urlopen("%s/?%s" % (self.fps_url, query_str))
+            data = response.read()
+            _log.debug("data == %s" % data)
+            response.close()
+        except urllib2.HTTPError, httperror:
+            data = httperror.read()
+            _log.error("data == %s: %s" % (httperror.code, data))
+            httperror.close()
+
+        return FPSResponse(ET.fromstring(data))
+        #return self.execute(params, sign=False)
