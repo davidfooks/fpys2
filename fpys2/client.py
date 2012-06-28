@@ -195,6 +195,7 @@ class FlexiblePaymentClient(object):
                        payment_reason,
                        return_url,
                        pipeline_name="SingleUse",
+                       cobranding_url=None,
                        recurring_period=None,
                        amount_type=None,
                        validity_start=None,
@@ -227,6 +228,9 @@ class FlexiblePaymentClient(object):
 
         if recurring_period is not None:
             parameters['recurringPeriod'] = recurring_period
+
+        if cobranding_url is not None:
+            parameters['cobrandingUrl'] = cobranding_url
 
         parameters['signature'] = self.get_signature(parameters)
         query_string = urllib.urlencode(parameters)
