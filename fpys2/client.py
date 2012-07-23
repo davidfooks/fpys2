@@ -30,8 +30,10 @@ class AmazonError(Error):
     def __init__(self, response):
         if isinstance(response.errors, list):
             Error.__init__(self, "%s: %s" % (response.errors[0].errorCode, response.errors[0].reasonText))
+            self.code = response.errors[0].errorCode
         else:
             Error.__init__(self, "%s: %s" % (response.errors.error.code, response.errors.error.message))
+            self.code = response.errors.error.code
         self.response = response
 
 class FPSResponse(object):
@@ -200,7 +202,9 @@ class FlexiblePaymentClient(object):
                        amount_type=None,
                        validity_start=None,
                        validity_expiry=None,
-                       transaction_amount=None):
+                       transaction_amount=None,
+                       global_amount_limit=None,
+                       payment_method=None):
         """Gets the URL for making a co-branded service request, like in this Java
         code:
         http://docs.amazonwebservices.com/AmazonFPS/latest/FPSGettingStartedGuide/index.html?gsMakingCoBrandedUIRequests.html#d0e1242
@@ -217,6 +221,9 @@ class FlexiblePaymentClient(object):
         if transaction_amount:
             parameters['transactionAmount'] = transaction_amount
 
+        if payment_method:
+            parameters['paymentMethod'] = payment_method
+
         if amount_type:
             parameters['amountType'] = amount_type
 
@@ -231,6 +238,9 @@ class FlexiblePaymentClient(object):
 
         if cobranding_url is not None:
             parameters['cobrandingUrl'] = cobranding_url
+
+        if global_amount_limit is not None:
+            parameters['globalAmountLimit'] = global_amount_limit
 
         parameters['signature'] = self.get_signature(parameters)
         query_string = urllib.urlencode(parameters)
@@ -322,4 +332,3 @@ class FlexiblePaymentClient(object):
             httperror.close()
 
         return FPSResponse(ET.fromstring(data))
-        #return self.execute(params, sign=False)
