@@ -204,6 +204,7 @@ class FlexiblePaymentClient(object):
                        validity_expiry=None,
                        transaction_amount=None,
                        global_amount_limit=None,
+                       collect_shipping_address=None,
                        payment_method=None):
         """Gets the URL for making a co-branded service request, like in this Java
         code:
@@ -241,6 +242,9 @@ class FlexiblePaymentClient(object):
 
         if global_amount_limit is not None:
             parameters['globalAmountLimit'] = global_amount_limit
+
+        if collect_shipping_address is not None:
+            parameters['collectShippingAddress'] = collect_shipping_address
 
         parameters['signature'] = self.get_signature(parameters)
         query_string = urllib.urlencode(parameters)
